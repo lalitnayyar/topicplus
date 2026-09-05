@@ -193,6 +193,28 @@ small for that, so the model's response was being cut off mid-JSON.
 | H8 | PDF source link formatting | Changed from printing the full raw URL to a clean "View source ↗" clickable label, matching the web UI | PASS (visual improvement, existing PDF smoke tests still pass) |
 | H9 | Full regression suite | All existing tests re-run after these changes | PASS — 39/39 tests (up from 34) |
 
+## I. Vercel deploy failure — stuck Postgres advisory lock (infra incident)
+
+A redeploy failed twice in a row with `Timed out trying to acquire a postgres advisory
+lock (SELECT pg_advisory_lock(72707369))` during the build's `prisma migrate deploy`
+step.
+
+| Sl No | Case | What was tested | Result |
+| --- | --- | --- | --- |
+| I1 | First failure | Redeploy with the pooled `DATABASE_URL` used for migrations | FAILED — advisory lock timeout |
+| I2 | Suspected pooling issue | Neon's pooled connection goes through pgbouncer in transaction-pooling mode, which can't guarantee the stable session Prisma's advisory-lock migration locking needs | Added `directUrl = env("DATABASE_URL_UNPOOLED")` to `prisma/postgres/schema.prisma` so migrations use Neon's direct connection instead |
+| I3 | Retried after the fix | Redeployed | STILL FAILED — same lock ID, same timeout, even from a local direct connection |
+| I4 | Root cause found | Queried `pg_locks`/`pg_stat_activity` directly against the database: a stuck advisory lock (`pid 852`, `granted: true`) was being held by an ordinary, unrelated app query (`SELECT ... FROM "DuplicateCluster" ...`) | The first failed build had acquired the lock over the *pooled* connection; PgBouncer recycled that same physical backend into the app's regular connection pool afterward without the lock ever being released, silently blocking all future migration attempts regardless of which URL they used |
+| I5 | Fix applied | `SELECT pg_terminate_backend(852)` to forcibly close the stuck backend (safe — it was idle; PgBouncer/Prisma just opens a replacement connection) | Lock released (`pg_locks` empty afterward) |
+| I6 | Retried migration | `prisma migrate deploy --schema=prisma/postgres/schema.prisma` | PASS — "No pending migrations to apply" |
+| I7 | Redeploy | `vercel deploy --prod` | PASS — deployment `READY` |
+| I8 | End-to-end confirmation | Signup → create search → poll to completion on the live deployment | PASS — 89 posts retrieved, status `completed` |
+
+**Conclusion:** the `directUrl` change is still worth keeping (routes migrations off the
+pooled connection going forward, reducing the chance of this recurring), but the
+immediate blocker was a stuck lock from the very first failed attempt, not a persistent
+configuration problem.
+
 ## Known limitations observed during testing
 
 - Demo mode's heuristic scorer is keyword/phrase-overlap based, so on-topic synthetic posts
