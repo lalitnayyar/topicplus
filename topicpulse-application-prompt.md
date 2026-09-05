@@ -37,7 +37,7 @@ Generate the following sections using only collected content:
 - **Key takeaways:** Important reported developments, recurring opinions, and useful insights.
 - **Areas of disagreement:** Competing views with supporting sources.
 - **Questions people are asking:** Recurring questions and unmet needs.
-- **Representative posts:** Source-linked examples for each major theme.
+- **Representative posts:** Source-linked examples for each major theme. Additionally, let the user choose how many representative posts to display — 10, 20, 30, 40, or 50 — ordered by Topic Match score, descending.
 - **Collection limitations:** Missing content, partial retrieval, excluded posts, the Similar Content % signal with its near-duplicate cluster count, and other limitations affecting interpretation.
 
 Every substantive conclusion must cite supporting collected posts using clickable source links. Distinguish reported claims from verified facts; collection alone does not verify a claim. Describe sentiment only when supported, allow mixed or uncertain classifications, and do not present the sample as representative of all X users.
@@ -48,7 +48,7 @@ Validate that every citation references a collected post. Do not fabricate quota
 
 Provide an **All extracted text** tab containing every collected post, numbered and ordered newest first, with author, timestamp, and original link.
 
-Allow switching between the report, thematic groups, original posts, and consolidated text. Include search within results, sorting by newest or available engagement metrics, one-click copying, and exports to TXT, Markdown, CSV, and JSON where provider rules permit. Protect CSV exports against spreadsheet formula injection.
+Allow switching between the report, thematic groups, original posts, and consolidated text. Include search within results, sorting by newest or available engagement metrics, one-click copying, and exports to TXT, Markdown, CSV, JSON, and PDF where provider rules permit. Protect CSV exports against spreadsheet formula injection.
 
 Include topic, filters, retrieval timestamp, coverage window, actual counts, and collection limitations in exports. Explain any provider restrictions that prevent exporting particular fields.
 

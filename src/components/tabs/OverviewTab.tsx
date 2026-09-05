@@ -1,16 +1,41 @@
 "use client";
 
+import { useMemo } from "react";
 import type { RunDetail } from "@/types";
 import { PostCard } from "@/components/PostCard";
 
-export function OverviewTab({ detail }: { detail: RunDetail }) {
+export const REP_COUNT_OPTIONS = [10, 20, 30, 40, 50] as const;
+export type RepCount = (typeof REP_COUNT_OPTIONS)[number];
+
+export function OverviewTab({
+  detail,
+  repCount,
+  onRepCountChange,
+}: {
+  detail: RunDetail;
+  repCount: RepCount;
+  onRepCountChange: (n: RepCount) => void;
+}) {
   const { report, posts, run } = detail;
+
+  const themeByPostId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const rp of report?.representativePostsJson ?? []) map.set(rp.postId, rp.theme);
+    return map;
+  }, [report]);
+
+  const topByRelevance = useMemo(
+    () =>
+      [...posts]
+        .filter((p) => p.score?.isScorable)
+        .sort((a, b) => (b.score?.score ?? 0) - (a.score?.score ?? 0))
+        .slice(0, repCount),
+    [posts, repCount]
+  );
 
   if (!report) {
     return <p className="rounded-xl border border-border bg-surface p-6 text-sm text-foreground-muted">No report has been generated for this run yet.</p>;
   }
-
-  const postById = new Map(posts.map((p) => [p.id, p]));
 
   return (
     <div className="space-y-6">
@@ -65,17 +90,36 @@ export function OverviewTab({ detail }: { detail: RunDetail }) {
         </section>
       )}
 
-      {report.representativePostsJson.length > 0 && (
+      {topByRelevance.length > 0 && (
         <section className="tp-animate-in rounded-2xl border border-border bg-surface p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-foreground">Representative posts</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-foreground">Representative posts</h2>
+            <div className="flex items-center gap-2">
+              <label htmlFor="rep-count" className="text-xs font-medium text-foreground-muted">
+                Show
+              </label>
+              <select
+                id="rep-count"
+                value={repCount}
+                onChange={(e) => onRepCountChange(Number(e.target.value) as RepCount)}
+                className="rounded-lg border border-border bg-background px-2 py-1 text-sm text-foreground outline-none focus-visible:border-primary-400"
+              >
+                {REP_COUNT_OPTIONS.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <p className="mt-1 text-xs text-foreground-muted">Ordered by Topic Match score, highest first.</p>
           <div className="mt-3 space-y-3">
-            {report.representativePostsJson.map((rp, i) => {
-              const post = postById.get(rp.postId);
-              if (!post) return null;
+            {topByRelevance.map((post, i) => {
+              const theme = themeByPostId.get(post.id);
               return (
-                <div key={i}>
-                  <p className="mb-1 text-xs font-medium uppercase tracking-wide text-primary-600">{rp.theme}</p>
-                  <PostCard post={post} />
+                <div key={post.id}>
+                  {theme && <p className="mb-1 text-xs font-medium uppercase tracking-wide text-primary-600">{theme}</p>}
+                  <PostCard post={post} index={i} />
                 </div>
               );
             })}

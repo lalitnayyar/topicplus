@@ -6,7 +6,7 @@ import type { RunDetail } from "@/types";
 import { ProgressStages } from "@/components/ProgressStages";
 import { ResultsHeader } from "@/components/ResultsHeader";
 import { ExportMenu } from "@/components/ExportMenu";
-import { OverviewTab } from "@/components/tabs/OverviewTab";
+import { OverviewTab, type RepCount } from "@/components/tabs/OverviewTab";
 import { ThemesTab } from "@/components/tabs/ThemesTab";
 import { PostsTab } from "@/components/tabs/PostsTab";
 import { AllTextTab } from "@/components/tabs/AllTextTab";
@@ -23,6 +23,7 @@ export default function RunPage({ params }: { params: Promise<{ id: string }> })
   const [notFound, setNotFound] = useState(false);
   const [tab, setTab] = useState<Tab>("Overview");
   const [rerunLoading, setRerunLoading] = useState(false);
+  const [repCount, setRepCount] = useState<RepCount>(10);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function fetchRun(): Promise<string | null> {
@@ -129,11 +130,11 @@ export default function RunPage({ params }: { params: Promise<{ id: string }> })
                 </button>
               ))}
             </nav>
-            <ExportMenu runId={id} />
+            <ExportMenu runId={id} repCount={tab === "Overview" ? repCount : undefined} />
           </div>
 
           <div>
-            {tab === "Overview" && <OverviewTab detail={detail} />}
+            {tab === "Overview" && <OverviewTab detail={detail} repCount={repCount} onRepCountChange={setRepCount} />}
             {tab === "Themes" && <ThemesTab detail={detail} />}
             {tab === "Posts" && <PostsTab detail={detail} />}
             {tab === "All extracted text" && <AllTextTab detail={detail} />}

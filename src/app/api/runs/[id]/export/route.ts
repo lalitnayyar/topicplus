@@ -5,9 +5,11 @@ import { recordAuditEvent } from "@/lib/audit";
 import { handleApiError } from "@/lib/apiError";
 import { prisma } from "@/lib/db";
 import { toCsv } from "@/lib/csv";
+import { renderReportPdf } from "@/lib/pdf";
 
-const FORMATS = ["txt", "md", "csv", "json"] as const;
+const FORMATS = ["txt", "md", "csv", "json", "pdf"] as const;
 type Format = (typeof FORMATS)[number];
+const REP_COUNT_OPTIONS = [10, 20, 30, 40, 50] as const;
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -58,6 +60,56 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     if (format === "json") {
       return NextResponse.json({ meta, posts: posts.map((p) => ({ ...p, score: scoreByPostId.get(p.id) ?? null })), report });
+    }
+
+    if (format === "pdf") {
+      const requestedRepCount = Number(searchParams.get("repCount"));
+      const repCount = REP_COUNT_OPTIONS.includes(requestedRepCount as (typeof REP_COUNT_OPTIONS)[number]) ? requestedRepCount : 10;
+      const representativePosts = [...posts]
+        .filter((p) => scoreByPostId.get(p.id)?.isScorable)
+        .sort((a, b) => (scoreByPostId.get(b.id)?.score ?? 0) - (scoreByPostId.get(a.id)?.score ?? 0))
+        .slice(0, repCount)
+        .map((p) => ({
+          theme: null,
+          authorName: p.authorName,
+          authorHandle: p.authorHandle,
+          postedAt: p.postedAt.toISOString(),
+          url: p.url,
+          text: p.text,
+          score: scoreByPostId.get(p.id)?.score ?? null,
+        }));
+
+      const pdfBuffer = await renderReportPdf({
+        topic: meta.topic,
+        status: meta.status,
+        provider: meta.provider,
+        isDemo: meta.isDemo,
+        retrievedCount: meta.retrievedCount,
+        requestedCount: meta.requestedCount,
+        scoredCount: meta.scoredCount,
+        unscorableCount: meta.unscorableCount,
+        coverageStart: meta.coverageStart?.toISOString() ?? null,
+        coverageEnd: meta.coverageEnd?.toISOString() ?? null,
+        averageTopicMatch: meta.averageTopicMatch,
+        relevantPostsPct: meta.relevantPostsPct,
+        similarContentPct: meta.similarContentPct,
+        dedupClusterCount: run.dedupClusterCount,
+        report: report
+          ? {
+              executiveSummary: report.executiveSummary,
+              keyTakeawaysJson: report.keyTakeawaysJson as string[],
+              questionsJson: report.questionsJson as string[],
+              limitations: report.limitations,
+              generatedByProvider: report.generatedByProvider,
+              generatedByModel: report.generatedByModel,
+            }
+          : null,
+        representativePosts,
+      });
+
+      return new NextResponse(new Uint8Array(pdfBuffer), {
+        headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="topicpulse-${id}.pdf"` },
+      });
     }
 
     if (format === "csv") {

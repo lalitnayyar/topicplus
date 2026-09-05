@@ -170,7 +170,14 @@ small for that, so the model's response was being cut off mid-JSON.
 | F1.2 | Fix | `generateWithAI` (`src/lib/report.ts`) now requests `max(userConfiguredMaxOutputTokens, 6000)` specifically for the report call, regardless of the provider's own default or whatever smaller value the user set for quick tests | FIXED |
 | F1.3 | Regression tests | Added tests asserting the report call always requests ≥6000 output tokens when unset, and respects a higher user-configured value (e.g. 9000) unchanged | PASS — 32/32 tests (up from 30) |
 
-## Known limitations observed during testing
+## G. Representative posts count selector + PDF export (user-requested features)
+
+| Sl No | Case | What was tested | Result |
+| --- | --- | --- | --- |
+| G1 | Representative posts count selector | Overview tab's Representative Posts section now has a 10/20/30/40/50 selector, sourced from all scored posts sorted by Topic Match descending (not limited to the report's per-theme picks) | PASS — type-checked, existing test suite unaffected |
+| G2 | PDF export — well-formed output | `GET /api/runs/:id/export?format=pdf&repCount=20` against a completed local run | PASS — returned a valid 4-page `%PDF-1.3` document (13.4 KB) |
+| G3 | PDF export unit tests | `renderReportPdf` with a full report + representative posts, and with a null report / empty representative posts | PASS — 34/34 tests (up from 32) |
+| G4 | PDF export mirrors the viewed count | `ExportMenu`'s PDF link carries the Overview tab's currently-selected `repCount` as a query param | PASS |
 
 ## Known limitations observed during testing
 
