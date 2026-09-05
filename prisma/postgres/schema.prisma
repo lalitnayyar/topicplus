@@ -12,6 +12,13 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  // Migrations (prisma migrate deploy) need a stable session for advisory locking.
+  // Neon's pooled DATABASE_URL goes through pgbouncer in transaction-pooling mode,
+  // which can't guarantee that and causes intermittent
+  // "Timed out trying to acquire a postgres advisory lock" build failures — route
+  // migrations at the direct (unpooled) connection instead. Regular query traffic
+  // (via `url` above) still uses the pooled connection.
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 model User {
