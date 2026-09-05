@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { RunDetail } from "@/types";
 import { PostCard } from "@/components/PostCard";
 
@@ -17,6 +17,7 @@ export function OverviewTab({
   onRepCountChange: (n: RepCount) => void;
 }) {
   const { report, posts, run } = detail;
+  const [page, setPage] = useState(0);
 
   const themeByPostId = useMemo(() => {
     const map = new Map<string, string>();
@@ -24,14 +25,17 @@ export function OverviewTab({
     return map;
   }, [report]);
 
-  const topByRelevance = useMemo(
-    () =>
-      [...posts]
-        .filter((p) => p.score?.isScorable)
-        .sort((a, b) => (b.score?.score ?? 0) - (a.score?.score ?? 0))
-        .slice(0, repCount),
-    [posts, repCount]
+  const sortedByRelevance = useMemo(
+    () => [...posts].filter((p) => p.score?.isScorable).sort((a, b) => (b.score?.score ?? 0) - (a.score?.score ?? 0)),
+    [posts]
   );
+
+  useEffect(() => setPage(0), [repCount]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedByRelevance.length / repCount));
+  const currentPage = Math.min(page, totalPages - 1);
+  const pageStart = currentPage * repCount;
+  const pageItems = sortedByRelevance.slice(pageStart, pageStart + repCount);
 
   if (!report) {
     return <p className="rounded-xl border border-border bg-surface p-6 text-sm text-foreground-muted">No report has been generated for this run yet.</p>;
@@ -90,13 +94,13 @@ export function OverviewTab({
         </section>
       )}
 
-      {topByRelevance.length > 0 && (
+      {sortedByRelevance.length > 0 && (
         <section className="tp-animate-in rounded-2xl border border-border bg-surface p-6 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-foreground">Representative posts</h2>
             <div className="flex items-center gap-2">
               <label htmlFor="rep-count" className="text-xs font-medium text-foreground-muted">
-                Show
+                Per page
               </label>
               <select
                 id="rep-count"
@@ -113,16 +117,41 @@ export function OverviewTab({
             </div>
           </div>
           <p className="mt-1 text-xs text-foreground-muted">Ordered by Topic Match score, highest first.</p>
+
           <div className="mt-3 space-y-3">
-            {topByRelevance.map((post, i) => {
+            {pageItems.map((post, i) => {
               const theme = themeByPostId.get(post.id);
               return (
                 <div key={post.id}>
                   {theme && <p className="mb-1 text-xs font-medium uppercase tracking-wide text-primary-600">{theme}</p>}
-                  <PostCard post={post} index={i} />
+                  <PostCard post={post} index={pageStart + i} />
                 </div>
               );
             })}
+          </div>
+
+          <div className="mt-4 flex items-center justify-between gap-3 border-t border-border pt-3">
+            <p className="text-xs text-foreground-muted">
+              Showing {pageItems.length === 0 ? 0 : pageStart + 1}–{pageStart + pageItems.length} of {sortedByRelevance.length}
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={currentPage === 0}
+                className="rounded-lg border border-border px-3 py-1 text-xs font-medium text-foreground-muted hover:border-primary-300 hover:text-primary-700 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                ← Prev
+              </button>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={currentPage >= totalPages - 1}
+                className="rounded-lg border border-border px-3 py-1 text-xs font-medium text-foreground-muted hover:border-primary-300 hover:text-primary-700 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Next →
+              </button>
+            </div>
           </div>
         </section>
       )}

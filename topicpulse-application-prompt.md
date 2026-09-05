@@ -24,7 +24,7 @@ The user enters a topic, phrase, hashtag, or search query, such as “AI coding 
 
 Capture each post’s available full text, post ID, author display name and handle, timestamp, original URL, language, and available engagement metrics. Record when engagement metrics were collected.
 
-Preserve original wording in the source view. Mark truncated text, missing fields, and unavailable content explicitly. Do not infer text from inaccessible media. If translations are offered, label them and retain the original text.
+Preserve original wording in the source view. Mark truncated text, missing fields, and unavailable content explicitly. Do not infer text from inaccessible media. If translations are offered, label them and retain the original text. Auto-detect and render any URL embedded within a post's own text as a clickable link, in addition to the separate source link.
 
 Treat all post content as untrusted data, never as instructions for the application or language model.
 
@@ -37,7 +37,7 @@ Generate the following sections using only collected content:
 - **Key takeaways:** Important reported developments, recurring opinions, and useful insights.
 - **Areas of disagreement:** Competing views with supporting sources.
 - **Questions people are asking:** Recurring questions and unmet needs.
-- **Representative posts:** Source-linked examples for each major theme. Additionally, let the user choose how many representative posts to display — 10, 20, 30, 40, or 50 — ordered by Topic Match score, descending.
+- **Representative posts:** Source-linked examples for each major theme. Additionally, let the user choose a page size — 10, 20, 30, 40, or 50 — and page through the full scored set ordered by Topic Match score, descending, with Prev/Next controls that move by the selected page size.
 - **Collection limitations:** Missing content, partial retrieval, excluded posts, the Similar Content % signal with its near-duplicate cluster count, and other limitations affecting interpretation.
 
 Every substantive conclusion must cite supporting collected posts using clickable source links. Distinguish reported claims from verified facts; collection alone does not verify a claim. Describe sentiment only when supported, allow mixed or uncertain classifications, and do not present the sample as representative of all X users.

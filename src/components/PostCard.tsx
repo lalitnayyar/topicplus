@@ -1,6 +1,7 @@
 "use client";
 
 import type { CollectedPostView } from "@/types";
+import { LinkifiedText } from "@/components/LinkifiedText";
 
 function scoreColor(score: number | null): string {
   if (score === null) return "bg-surface-muted text-foreground-muted";
@@ -31,7 +32,9 @@ export function PostCard({ post, index }: { post: CollectedPostView; index?: num
         )}
       </div>
 
-      <p className="mt-2 whitespace-pre-wrap text-sm text-foreground">{post.text}</p>
+      <p className="mt-2 whitespace-pre-wrap text-sm text-foreground">
+        <LinkifiedText text={post.text} />
+      </p>
 
       <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-foreground-muted">
         <a href={post.url} target="_blank" rel="noopener noreferrer" className="font-medium text-primary-600 hover:underline">

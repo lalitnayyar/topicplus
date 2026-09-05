@@ -25,7 +25,8 @@ with clearly-labeled synthetic sample posts.
 ### Views & exports
 - Tabs: **Overview**, **Themes**, **Posts**, **All extracted text**, **Audit log**.
 - Search within results, sort by newest or engagement, filter by minimum relevance (without altering the saved report), one-click copy.
-- Overview's **Representative posts** section shows the top 10/20/30/40/50 posts (your choice) ordered by Topic Match score, descending.
+- Overview's **Representative posts** section pages through the full scored set, 10/20/30/40/50 per page (your choice), ordered by Topic Match score, descending, with Prev/Next moving by the selected page size.
+- URLs embedded within a post's own text are automatically rendered as clickable links.
 - Export to TXT, Markdown, CSV, JSON, and **PDF** — CSV is hardened against spreadsheet formula injection; the PDF export mirrors the on-screen report (summary, takeaways, questions, the same representative-posts count you're currently viewing, and limitations).
 
 ### History, versions & audit

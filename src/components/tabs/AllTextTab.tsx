@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { RunDetail } from "@/types";
+import { LinkifiedText } from "@/components/LinkifiedText";
 
 export function AllTextTab({ detail }: { detail: RunDetail }) {
   const { posts } = detail;
@@ -58,7 +59,9 @@ export function AllTextTab({ detail }: { detail: RunDetail }) {
                 source ↗
               </a>
             </p>
-            <p className="mt-1.5 whitespace-pre-wrap text-sm text-foreground">{post.text}</p>
+            <p className="mt-1.5 whitespace-pre-wrap text-sm text-foreground">
+              <LinkifiedText text={post.text} />
+            </p>
           </li>
         ))}
         {filtered.length === 0 && <p className="rounded-xl border border-border bg-surface p-6 text-sm text-foreground-muted">No posts match this search.</p>}

@@ -179,6 +179,20 @@ small for that, so the model's response was being cut off mid-JSON.
 | G3 | PDF export unit tests | `renderReportPdf` with a full report + representative posts, and with a null report / empty representative posts | PASS — 34/34 tests (up from 32) |
 | G4 | PDF export mirrors the viewed count | `ExportMenu`'s PDF link carries the Overview tab's currently-selected `repCount` as a query param | PASS |
 
+## H. Representative posts pagination + URL linkification (follow-up)
+
+| Sl No | Case | What was tested | Result |
+| --- | --- | --- | --- |
+| H1 | Pagination by selected page size | Representative Posts now pages through the full scored set (Prev/Next), moving by the selected 10/20/30/40/50 page size, instead of only ever showing the first N | PASS — type-checked, build clean |
+| H2 | Page reset on page-size change | Changing the page-size selector resets back to page 1 rather than leaving a stale offset | PASS |
+| H3 | URL auto-linking — plain text | Text with no URL renders as a single unlinked segment | PASS |
+| H4 | URL auto-linking — embedded URL | An `https://` URL embedded inside post text is split out and rendered as its own clickable segment, surrounding text untouched | PASS |
+| H5 | URL auto-linking — multiple URLs | Two URLs in the same text are both correctly identified | PASS |
+| H6 | URL auto-linking — scheme injection guard | `javascript:` and `data:` schemes are never treated as links (regex requires a literal `http(s)://` prefix) | PASS |
+| H7 | URL auto-linking — trailing punctuation | A URL immediately followed by a closing paren doesn't pull the paren into the href | PASS |
+| H8 | PDF source link formatting | Changed from printing the full raw URL to a clean "View source ↗" clickable label, matching the web UI | PASS (visual improvement, existing PDF smoke tests still pass) |
+| H9 | Full regression suite | All existing tests re-run after these changes | PASS — 39/39 tests (up from 34) |
+
 ## Known limitations observed during testing
 
 - Demo mode's heuristic scorer is keyword/phrase-overlap based, so on-topic synthetic posts

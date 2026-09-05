@@ -93,7 +93,7 @@ export function renderReportPdf(input: PdfReportInput): Promise<Buffer> {
           doc.fontSize(8).fillColor("#1476c4").text(post.theme.toUpperCase());
         }
         doc.fontSize(9).fillColor("black").text(post.text, { align: "left" });
-        doc.fontSize(8).fillColor("#1476c4").text(post.url, { link: post.url, underline: true });
+        doc.fontSize(8).fillColor("#1476c4").text("View source ↗", { link: post.url, underline: true });
         doc.fillColor("black");
         doc.moveDown(0.75);
       }
