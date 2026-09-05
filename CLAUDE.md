@@ -97,3 +97,9 @@ Docker (primary deployment target — see README.md for the full command table):
   cloud-platform-oriented CLI incompatible with the plain `datasource { url = env(...) }`
   + `prisma migrate dev` workflow this repo relies on for local/Docker SQLite. Don't
   upgrade without re-checking that migration flow still exists.
+
+## Author & disclaimer
+
+Maintained by Lalit Nayyar (lalitnayyar@gmail.com, +91 95953 53336, +971 50 832 0336).
+See the "Author & Disclaimer" section in `README.md` for the full liability/compliance
+disclaimer — keep it in sync if this file's guidance materially changes.

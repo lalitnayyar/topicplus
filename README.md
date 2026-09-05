@@ -177,3 +177,20 @@ end-to-end API and Docker-deployment verification.
   cancellation/idempotency registry used here.
 - SQLite on Vercel's serverless filesystem is not durable — use the Docker deployment,
   or point `DATABASE_URL` at a hosted database, for real persistence there.
+
+## Author & Disclaimer
+
+**Author / maintainer:** Lalit Nayyar
+**Email:** lalitnayyar@gmail.com
+**Phone:** +91 95953 53336 · +971 50 832 0336
+
+This software is provided "as is," without warranty of any kind, express or implied,
+including but not limited to warranties of merchantability, fitness for a particular
+purpose, and non-infringement. The author accepts no liability for any damages or
+losses arising from the use of this project.
+
+Using this project to collect or analyze real X (Twitter) data requires the operator's
+own compliance with the X Developer Agreement and Policy and the applicable API
+license terms, and with the terms of service of any configured AI provider (OpenAI,
+Ollama Cloud, DeepSeek, Google Gemini). Demo mode uses clearly labeled synthetic
+sample data only and does not represent real X content or real user activity.

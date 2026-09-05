@@ -2,6 +2,10 @@
   "name": "topicpulse",
   "version": "0.1.0",
   "private": true,
+  "author": {
+    "name": "Lalit Nayyar",
+    "email": "lalitnayyar@gmail.com"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",

@@ -259,3 +259,9 @@ Package the application for self-hosted operation using Docker as the primary de
 A user can enter a topic, retrieve up to 100 latest accessible matching X posts, inspect their extracted text, read a grounded report with working source citations, understand topic match percentages, export permitted results, reopen saved searches, compare reruns, and inspect their audit trail. Incomplete retrieval, unavailable content, demo data, and scoring limitations must always be explicit.
 
 A user can configure X access and an AI provider from Settings, securely save credentials, select an available LLM, and independently test X search access and AI inference. Ollama Cloud is the preferred default, with verified model availability.
+
+---
+
+**Author / maintainer:** Lalit Nayyar · lalitnayyar@gmail.com · +91 95953 53336 · +971 50 832 0336
+
+Provided "as is," without warranty of any kind. See the "Author & Disclaimer" section of `README.md` for the full liability and compliance disclaimer.
