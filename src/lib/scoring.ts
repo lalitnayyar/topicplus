@@ -1,6 +1,15 @@
 import { z } from "zod";
-import type { AIProvider, AIProviderConfig } from "@/lib/providers/ai/types";
+import { AIProviderError, type AIProvider, type AIProviderConfig } from "@/lib/providers/ai/types";
 import { normalizeText } from "@/lib/similarity";
+
+// See report.ts's describeScoringFailure sibling — distinguishes a real provider
+// failure (auth/rate-limit/network) from the model just not returning parseable JSON.
+function describeScoringFailure(err: unknown): string {
+  if (err instanceof AIProviderError) return `${err.code}: ${err.message}`;
+  if (err instanceof SyntaxError) return "the model's response was not valid JSON";
+  if (err instanceof z.ZodError) return "the model's response did not match the expected score shape";
+  return err instanceof Error ? err.message : "unknown error";
+}
 
 export const SCORING_RUBRIC_VERSION = "v1";
 
@@ -85,14 +94,16 @@ async function scoreWithAI(
           });
         }
       }
-    } catch {
+    } catch (err) {
+      const reason = describeScoringFailure(err);
+      console.error(`[scoring] AI relevance scoring failed (${provider.id}/${config.model}): ${reason}`, err);
       for (const post of batch) {
         results.push({
           postId: post.id,
           score: null,
           explanation: "",
           isScorable: false,
-          unscorableReason: "AI response could not be parsed as a valid score",
+          unscorableReason: reason,
         });
       }
     }

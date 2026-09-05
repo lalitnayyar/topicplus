@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { scoreRelevance } from "./scoring";
+import { AIProviderError, type AIProvider } from "@/lib/providers/ai/types";
 
 describe("scoreRelevance (heuristic path, no AI configured)", () => {
   it("scores every post as scorable and computes both aggregate metrics", async () => {
@@ -42,5 +43,33 @@ describe("scoreRelevance (heuristic path, no AI configured)", () => {
     expect(outcome.unscorableCount).toBe(0);
     expect(outcome.averageTopicMatch).toBeNull();
     expect(outcome.relevantPostsPct).toBeNull();
+  });
+});
+
+describe("scoreRelevance (AI configured but the call fails)", () => {
+  // Regression test: a provider failure (auth/rate-limit/network) must be surfaced with
+  // its specific reason, not collapsed into a generic "could not be parsed" message that
+  // hides what actually went wrong.
+  it("marks posts unscorable with the specific provider error, not a generic message", async () => {
+    const failingProvider: AIProvider = {
+      id: "ollama_cloud",
+      label: "Ollama Cloud",
+      defaultEndpoint: "https://ollama.com",
+      supportsModelDiscovery: true,
+      fallbackModels: [],
+      listModels: vi.fn(),
+      complete: vi.fn().mockRejectedValue(new AIProviderError("rate_limited", "Rate limit exceeded. Try again shortly.")),
+      testConnection: vi.fn(),
+    };
+    const outcome = await scoreRelevance(
+      "topic",
+      [{ id: "p1", text: "some post about the topic" }],
+      { provider: failingProvider, config: { apiKey: "key", model: "llama3.3:70b" } }
+    );
+
+    expect(outcome.scoredCount).toBe(0);
+    expect(outcome.unscorableCount).toBe(1);
+    expect(outcome.scores[0].unscorableReason).toContain("rate_limited");
+    expect(outcome.scores[0].unscorableReason).toContain("Rate limit exceeded");
   });
 });

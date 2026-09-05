@@ -22,7 +22,10 @@ export function PostCard({ post, index }: { post: CollectedPostView; index?: num
           <span className="text-foreground-muted">· {new Date(post.postedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</span>
         </div>
         {post.score && (
-          <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${scoreColor(post.score.score)}`} title={post.score.explanation ?? undefined}>
+          <span
+            className={`rounded-full px-2 py-0.5 text-xs font-semibold ${scoreColor(post.score.score)}`}
+            title={(post.score.isScorable ? post.score.explanation : post.score.unscorableReason) ?? undefined}
+          >
             {post.score.isScorable ? `Topic Match ${post.score.score}` : "Unscorable"}
           </span>
         )}
@@ -48,7 +51,12 @@ export function PostCard({ post, index }: { post: CollectedPostView; index?: num
           </span>
         )}
       </div>
-      {post.score?.explanation && <p className="mt-2 text-xs italic text-foreground-muted">{post.score.explanation}</p>}
+      {post.score?.isScorable && post.score.explanation && (
+        <p className="mt-2 text-xs italic text-foreground-muted">{post.score.explanation}</p>
+      )}
+      {post.score && !post.score.isScorable && post.score.unscorableReason && (
+        <p className="mt-2 text-xs italic text-danger-500">Unscorable: {post.score.unscorableReason}</p>
+      )}
     </article>
   );
 }

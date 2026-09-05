@@ -203,8 +203,11 @@ export async function runSearchPipeline(runId: string): Promise<void> {
         representativePostsJson: report.representativePosts as unknown as Prisma.InputJsonValue,
         limitations: report.limitations,
         scoredPostCount: scoring.scoredCount,
-        generatedByProvider: aiBundle ? aiBundle.provider.id : "heuristic",
-        generatedByModel: aiBundle ? aiBundle.config.model : "heuristic-v1",
+        // Reflect what actually generated the report (report.source), not just whether an
+        // AI provider was configured — generateReport() can fall back to the heuristic
+        // mid-request if the AI call fails, and that must not be mislabeled as AI-generated.
+        generatedByProvider: report.source === "ai" && aiBundle ? aiBundle.provider.id : "heuristic",
+        generatedByModel: report.source === "ai" && aiBundle ? aiBundle.config.model : "heuristic-v1",
       },
     });
 

@@ -129,6 +129,31 @@ database with a real Neon Postgres database (provisioned via the Vercel Marketpl
 (https://topicpulse.vercel.app) now uses a real shared Postgres database and behaves
 consistently across requests, matching the Docker deployment's reliability.
 
+## F. AI report/scoring failure surfacing (user-reported)
+
+The user reported seeing the heuristic message ("configure and test an AI provider in
+Settings for a grounded narrative report") despite Ollama Cloud already being configured
+and tested. Reproduced with a seeded `tested_ok` AI configuration and a deliberately
+invalid key.
+
+| Sl No | Case | What was tested | Result |
+| --- | --- | --- | --- |
+| F1 | Confirm AI resolution isn't the problem | Seeded a `tested_ok` AIConfiguration and ran the full pipeline | Scoring correctly attempted the AI provider (`relevance_scoring_completed:ai` in the audit log) — the user's "already configured" claim was accurate; the bug was downstream |
+| F2 | Bug found: mislabeled report provenance | When `generateReport()` internally falls back to the heuristic generator after an AI call fails, `ReportVersion.generatedByProvider`/`generatedByModel` were derived from whether an AI provider was *configured*, not from what actually generated the report (`report.source`) | REPRODUCED — report showed `generatedByProvider: "ollama_cloud"` while the executive summary and limitations text were clearly the heuristic fallback, an internally contradictory result |
+| F3 | Bug found: swallowed failure reason | Both `scoreRelevance()`'s per-batch catch and `generateReport()`'s AI-call catch discarded the real error (auth failure, rate limit, JSON parse failure, etc.) behind one generic message, with nothing logged server-side | REPRODUCED — `unscorableReason` read "AI response could not be parsed as a valid score" regardless of the real cause (in this case an invalid API key) |
+| F4 | Fix: provenance now reflects reality | `generatedByProvider`/`generatedByModel` now gated on `report.source === "ai"`, not just AI-bundle presence | FIXED — re-run showed `generatedByProvider: "heuristic"` correctly |
+| F5 | Fix: real failure reason surfaced | Added `describeReportFailure`/`describeScoringFailure` (distinguish `AIProviderError` codes, JSON `SyntaxError`, and Zod schema errors) plus `console.error` logging in both call sites | FIXED — re-run showed `limitations: "AI report generation failed (invalid_key: The API key was rejected.), so a heuristic fallback..."` and `unscorableReason: "invalid_key: The API key was rejected."` |
+| F6 | UI now shows the reason | `PostCard` only ever rendered the scorable-path `explanation`, never `unscorableReason` | FIXED — unscorable posts now show "Unscorable: \<reason\>" in red, and the score badge's tooltip includes it |
+| F7 | Regression tests | Added tests with a mocked failing `AIProvider` for both `generateReport` (asserts `source: "heuristic"` and the specific error text in `limitations`) and `scoreRelevance` (asserts the specific error text in `unscorableReason`) | PASS — 30/30 tests (up from 28) |
+
+**Conclusion:** the user's AI configuration was in fact working correctly up to the
+provider call; the actual failure (most likely an invalid/expired key, an unavailable
+model, or a rate limit on their real Ollama Cloud account) was real but was being
+mislabeled and its specific cause discarded. With this fix, the same failure would now
+show, e.g., "AI report generation failed (invalid_key: ...)" instead of the generic
+heuristic message, letting the user self-diagnose from Settings' "Test AI connection"
+result and the report's own limitations text.
+
 ## Known limitations observed during testing
 
 - Demo mode's heuristic scorer is keyword/phrase-overlap based, so on-topic synthetic posts

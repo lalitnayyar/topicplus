@@ -1,6 +1,16 @@
 import { z } from "zod";
-import type { AIProvider, AIProviderConfig } from "@/lib/providers/ai/types";
+import { AIProviderError, type AIProvider, type AIProviderConfig } from "@/lib/providers/ai/types";
 import { normalizeText } from "@/lib/similarity";
+
+// Distinguishes a real provider failure (auth/rate-limit/network — worth telling the
+// user about specifically) from the model simply not returning parseable JSON, instead
+// of collapsing both into one opaque "AI report generation failed" message.
+function describeReportFailure(err: unknown): string {
+  if (err instanceof AIProviderError) return `${err.code}: ${err.message}`;
+  if (err instanceof SyntaxError) return "the model's response was not valid JSON";
+  if (err instanceof z.ZodError) return "the model's response did not match the expected report shape";
+  return err instanceof Error ? err.message : "unknown error";
+}
 
 export interface ReportPostInput {
   id: string; // CollectedPost.id
@@ -196,11 +206,13 @@ export async function generateReport(
   if (ai) {
     try {
       return await generateWithAI(ai.provider, ai.config, topic, posts);
-    } catch {
+    } catch (err) {
+      const reason = describeReportFailure(err);
+      console.error(`[report] AI report generation failed (${ai.provider.id}/${ai.config.model}): ${reason}`, err);
       const fallback = generateWithHeuristic(topic, posts);
       return {
         ...fallback,
-        limitations: `AI report generation failed, so a heuristic fallback report was generated instead. ${fallback.limitations}`,
+        limitations: `AI report generation failed (${reason}), so a heuristic fallback report was generated instead. ${fallback.limitations}`,
       };
     }
   }
