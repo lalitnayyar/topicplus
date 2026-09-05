@@ -121,12 +121,23 @@ The host port is dynamic: set `PORT` in `.env` for a preferred default; if it's 
 
 ## Vercel deployment (secondary)
 
-The Next.js app deploys to Vercel as-is (`vercel deploy`), but Vercel's filesystem is
-ephemeral and not shared across serverless instances — a file-based SQLite database
-there will **not** persist reliably (it resets on cold starts/redeploys and isn't shared
-across concurrent instances). For real persistence on Vercel, point `DATABASE_URL` at a
-hosted database instead (e.g. Turso/libSQL or Postgres) rather than a local file. The
-Docker deployment above is the supported path for durable, self-hosted persistence.
+Live demo: **https://topicpulse.vercel.app** — deployed with `DATABASE_URL` pointed at
+`/tmp` (`file:/tmp/topicpulse.db`), since Vercel's filesystem is read-only outside `/tmp`.
+A pre-migrated, data-free `prisma/seed-empty.db` is bundled with the deployment and
+copied into place on cold start (`src/instrumentation.ts`) so each instance boots with
+schema and triggers ready, without running migrations at request time. Background run
+processing uses Next.js's `after()` API rather than a bare fire-and-forget promise, since
+Vercel can otherwise freeze a function immediately after it responds.
+
+**Known caveat**: `/tmp` is per-instance, not shared across concurrent or successive
+serverless invocations. In testing, most requests land on the same warm instance and the
+full search flow works end-to-end, but a request that happens to hit a different
+(freshly cold-started) instance sees its own empty database and can 404 on a run created
+moments earlier — roughly 1 in 5 requests in a quick repeated-polling test (see
+`TEST_RESULTS.md`, section D). This is inherent to ephemeral local-disk storage on
+serverless, not a bug. For a Vercel deployment with reliable persistence, point
+`DATABASE_URL` at a real hosted database (Postgres or Turso/libSQL) instead. The Docker
+deployment above is the supported path for durable, self-hosted persistence today.
 
 ## User guide
 

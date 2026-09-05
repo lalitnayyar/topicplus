@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth";
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       metadata: { previousRunId: previousRun?.id, filters, provider },
     });
 
-    void runSearchPipeline(run.id).catch((err) => console.error("runSearchPipeline failed", err));
+    after(() => runSearchPipeline(run.id).catch((err) => console.error("runSearchPipeline failed", err)));
 
     return NextResponse.json({ runId: run.id }, { status: 201 });
   } catch (err) {

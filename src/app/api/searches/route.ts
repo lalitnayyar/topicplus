@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth";
@@ -54,7 +54,11 @@ export async function POST(req: NextRequest) {
       metadata: { topic: body.topic, filters: body.filters, provider },
     });
 
-    void runSearchPipeline(run.id).catch((err) => console.error("runSearchPipeline failed", err));
+    // after() keeps this running past the response on serverless platforms (Vercel),
+    // where a bare fire-and-forget promise can be frozen/killed once the response is
+    // sent. In the Docker deployment (a long-lived process) this is equivalent to the
+    // previous fire-and-forget behavior.
+    after(() => runSearchPipeline(run.id).catch((err) => console.error("runSearchPipeline failed", err)));
 
     return NextResponse.json({ searchId: search.id, runId: run.id }, { status: 201 });
   } catch (err) {

@@ -83,6 +83,29 @@ credentials (to verify error handling without needing real accounts).
 | C10 | `restart` | Recreates the container, re-resolves the dynamic port, prints the live URL | PASS — reused port 3000 (free), app responded HTTP 200 immediately after |
 | C11 | Data persistence across restart | Volume-backed SQLite database survives `stop`/`restart` | PASS (implied by C10 succeeding against the same volume without re-running signup) |
 
+## D. Vercel deployment (secondary, ephemeral SQLite)
+
+Deployed live to `https://topicpulse.vercel.app` (`vercel deploy --prod`) with
+`DATABASE_URL=file:/tmp/topicpulse.db`. A pre-migrated, data-free `prisma/seed-empty.db`
+is bundled with the deployment and copied to `/tmp` on cold start
+(`src/instrumentation.ts`) so each instance has schema/triggers ready without needing to
+run migrations at request time.
+
+| Sl No | Case | What was tested | Result |
+| --- | --- | --- | --- |
+| D1 | Static/login page | `GET /login` on the live deployment | PASS (HTTP 200) |
+| D2 | Sign up + create search | Real HTTP requests against the live deployment | PASS |
+| D3 | Background pipeline completion (bug found & fixed) | First deploy used bare fire-and-forget (`void runSearchPipeline(...)`); the run got stuck in `"fetching"` and later 404'd because Vercel can freeze/kill a function once its response is sent | FIXED — switched to Next.js's `after()` API in both run-creation routes, which keeps the callback running past the response |
+| D4 | Repeated polling after the fix | 10 consecutive polls of the same run, 1s apart, immediately after creation | 8/10 returned `completed` (HTTP 200) with full results; 2/10 returned `404 "Run not found"` |
+| D5 | Root cause of the remaining 404s | Vercel's serverless functions don't share a filesystem across instances — a request that lands on a different (freshly cold-started) instance sees its own empty seeded `/tmp` database, so an earlier request's run genuinely doesn't exist there | Confirmed — this is the ephemeral-SQLite tradeoff disclosed to the user before deploying, now empirically measured at ~20% of requests in this quick test (expect it to worsen with more idle time between requests, as more cold starts occur) |
+
+**Conclusion:** the Vercel deployment is live and the core flow (signup → search →
+results) works on most requests, but a non-trivial share of requests can intermittently
+404 on data created moments earlier, because of `/tmp` not being shared across serverless
+instances — not because of any remaining bug. This is inherent to the "ephemeral SQLite"
+choice and would require switching `DATABASE_URL` to a real hosted database (Postgres or
+Turso/libSQL) to fully resolve, as documented in README.md.
+
 ## Known limitations observed during testing
 
 - Demo mode's heuristic scorer is keyword/phrase-overlap based, so on-topic synthetic posts
