@@ -121,23 +121,30 @@ The host port is dynamic: set `PORT` in `.env` for a preferred default; if it's 
 
 ## Vercel deployment (secondary)
 
-Live demo: **https://topicpulse.vercel.app** — deployed with `DATABASE_URL` pointed at
-`/tmp` (`file:/tmp/topicpulse.db`), since Vercel's filesystem is read-only outside `/tmp`.
-A pre-migrated, data-free `prisma/seed-empty.db` is bundled with the deployment and
-copied into place on cold start (`src/instrumentation.ts`) so each instance boots with
-schema and triggers ready, without running migrations at request time. Background run
-processing uses Next.js's `after()` API rather than a bare fire-and-forget promise, since
-Vercel can otherwise freeze a function immediately after it responds.
+Live demo: **https://topicpulse.vercel.app** — backed by a real Postgres database
+([Neon](https://neon.tech), provisioned via the Vercel Marketplace), not local SQLite.
+An earlier revision of this deployment pointed `DATABASE_URL` at Vercel's ephemeral
+`/tmp` filesystem; that was found to be unreliable enough to intermittently break login
+itself (a request landing on a different serverless instance has its own empty `/tmp`
+database) and was replaced with Neon. See `TEST_RESULTS.md` sections D and E for the
+full before/after comparison.
 
-**Known caveat**: `/tmp` is per-instance, not shared across concurrent or successive
-serverless invocations. In testing, most requests land on the same warm instance and the
-full search flow works end-to-end, but a request that happens to hit a different
-(freshly cold-started) instance sees its own empty database and can 404 on a run created
-moments earlier — roughly 1 in 5 requests in a quick repeated-polling test (see
-`TEST_RESULTS.md`, section D). This is inherent to ephemeral local-disk storage on
-serverless, not a bug. For a Vercel deployment with reliable persistence, point
-`DATABASE_URL` at a real hosted database (Postgres or Turso/libSQL) instead. The Docker
-deployment above is the supported path for durable, self-hosted persistence today.
+- `prisma/postgres/schema.prisma` is a Postgres-flavored twin of the canonical SQLite
+  schema at `prisma/schema.prisma` (used by local dev and the Docker deployment), with
+  its own migrations under `prisma/postgres/migrations/` — including a Postgres
+  (plpgsql) version of the append-only `AuditEvent` trigger. Keep both schemas in sync
+  when the data model changes.
+- `vercel.json`'s `buildCommand` generates the Postgres Prisma client and runs
+  `prisma migrate deploy` against the Postgres schema before `next build`, so new
+  migrations apply automatically on every deploy.
+- Background run processing uses Next.js's `after()` API rather than a bare
+  fire-and-forget promise, since Vercel can otherwise freeze a function immediately
+  after it responds — this mattered even with a shared database.
+- `DATABASE_URL` (and related `PG*`/`POSTGRES_*` vars) are injected automatically by the
+  Neon integration; `JWT_SECRET` and `ENCRYPTION_KEY` are set separately via
+  `vercel env add`.
+
+The Docker deployment above remains the primary, self-hosted path with SQLite.
 
 ## User guide
 

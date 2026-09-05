@@ -106,6 +106,29 @@ instances — not because of any remaining bug. This is inherent to the "ephemer
 choice and would require switching `DATABASE_URL` to a real hosted database (Postgres or
 Turso/libSQL) to fully resolve, as documented in README.md.
 
+## E. Vercel deployment fix — Neon Postgres (supersedes section D's ephemeral-SQLite approach)
+
+The user reported: "after login not able to see app its showing login only" on the live
+Vercel deployment. Investigated and fixed by replacing the ephemeral `/tmp` SQLite
+database with a real Neon Postgres database (provisioned via the Vercel Marketplace).
+
+| Sl No | Case | What was tested | Result |
+| --- | --- | --- | --- |
+| E1 | Reproduce the reported bug | Signed up a user, then immediately attempted login with the same (correct) credentials against the live deployment | REPRODUCED — login returned `401 Invalid email or password` for correct credentials, because the login request landed on a different serverless instance whose `/tmp` database never saw the signup |
+| E2 | Root cause confirmation | Traced to `/tmp` being per-instance, not shared — the same issue as section D's search-polling 404s, now manifesting in the auth flow itself | CONFIRMED |
+| E3 | Provision Postgres | `vercel install neon` via the Vercel Marketplace (after the user accepted Neon's marketplace terms in-browser), connected to the project | PASS — `DATABASE_URL` and related `PG*`/`POSTGRES_*` vars auto-injected, pooled connection (`-pooler` endpoint) used by default |
+| E4 | Postgres schema/migrations | Created `prisma/postgres/schema.prisma` (Postgres datasource) and its own migrations, including a plpgsql rewrite of the append-only `AuditEvent` trigger, developed and verified against a temporary local Postgres container before touching the real database | PASS — trigger correctly blocks `UPDATE`/`DELETE` with the exact custom error message (cleaner than SQLite's generic constraint error) |
+| E5 | Local smoke test against Postgres | Full flow (signup, create search, demo pipeline, `/api/auth/me`) run locally against the temp Postgres container | PASS — 83 posts retrieved, session persisted |
+| E6 | Migrations applied to production Neon DB | `prisma migrate deploy --schema=prisma/postgres/schema.prisma` against the real Neon connection string | PASS |
+| E7 | Vercel build wiring | `vercel.json` `buildCommand` regenerates the Postgres client and runs `prisma migrate deploy` before `next build` on every deploy | PASS — redeploy log showed "No pending migrations to apply" |
+| E8 | Repro re-test: login persistence | Same signup → login → repeated `/api/auth/me` sequence that failed in E1, run against the Neon-backed deployment | PASS — login succeeded, 8/8 subsequent `/api/auth/me` checks returned the correct user (vs. intermittent failure before) |
+| E9 | Repro re-test: search pipeline persistence | Create search → poll 8 times, 1s apart | PASS — 8/8 polls consistent (`completed`, 86 posts retrieved), vs. 2/10 `404`s before the fix |
+| E10 | History persistence | `GET /api/searches` after a completed run | PASS — 1 search returned, as expected |
+
+**Conclusion:** the reported login bug is fixed. The live Vercel deployment
+(https://topicpulse.vercel.app) now uses a real shared Postgres database and behaves
+consistently across requests, matching the Docker deployment's reliability.
+
 ## Known limitations observed during testing
 
 - Demo mode's heuristic scorer is keyword/phrase-overlap based, so on-topic synthetic posts

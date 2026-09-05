@@ -59,6 +59,19 @@ Docker (primary deployment target — see README.md for the full command table):
   shingle Jaccard similarity, union-find clustering, threshold `0.6`. This is a
   heuristic signal, not proof of inauthentic/coordinated activity — keep that framing
   wherever it's surfaced.
+- **Two Prisma schemas, kept in sync by hand**: `prisma/schema.prisma` (SQLite) is
+  canonical for local dev and the Docker deployment. `prisma/postgres/schema.prisma`
+  (Postgres) is a twin used only by the Vercel deployment, with its own
+  `prisma/postgres/migrations/` — including a separate plpgsql rewrite of the
+  append-only `AuditEvent` trigger (SQLite's `RAISE(ABORT, ...)` has no Postgres
+  equivalent). `vercel.json`'s `buildCommand` regenerates the client and runs
+  `prisma migrate deploy` against the Postgres schema on every Vercel deploy. If you
+  change a model, update both schema files and add a migration to both migration
+  folders. Vercel's `DATABASE_URL` (and `PG*`/`POSTGRES_*` vars) come from a Neon
+  Postgres database provisioned via the Vercel Marketplace — not local SQLite. An
+  earlier revision pointed Vercel at ephemeral `/tmp` SQLite instead; that broke login
+  itself (a request landing on a different serverless instance has its own empty
+  database) and was replaced with Neon — see `TEST_RESULTS.md` sections D and E.
 - **Data model** (`prisma/schema.prisma`): `User`, `Search` → `SearchRun` (1:many,
   `parentRunId` links "run again" reruns) → `CollectedPost`/`DuplicateCluster`/
   `RelevanceScore`/`ReportVersion` (1:many each), plus per-user `AuditEvent`,

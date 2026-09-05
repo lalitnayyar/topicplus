@@ -1,0 +1,236 @@
+// Postgres variant of ../schema.prisma, used only for the Vercel deployment
+// (see README.md "Vercel deployment"). Local dev and Docker use the SQLite
+// schema at ../schema.prisma — keep both in sync when the data model changes.
+// The append-only AuditEvent trigger is Postgres-specific SQL in
+// postgres/migrations/..._audit_append_only/migration.sql (plpgsql, not the
+// SQLite RAISE(ABORT, ...) syntax used in the SQLite migration).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  searches      Search[]
+  xConnection   XConnectionSettings?
+  aiConfig      AIConfiguration?
+  auditEvents   AuditEvent[]
+}
+
+model Search {
+  id         String   @id @default(cuid())
+  userId     String
+  topic      String
+  name       String?
+  isFavorite Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+
+  user User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  runs SearchRun[]
+
+  @@index([userId])
+}
+
+// Status lifecycle: pending -> fetching -> extracting -> scoring -> grouping -> generating -> saving -> completed
+// Alternate terminal states: partial, failed, canceled
+model SearchRun {
+  id             String   @id @default(cuid())
+  searchId       String
+  parentRunId    String?
+  status         String   @default("pending")
+  isDemo         Boolean  @default(false)
+
+  provider        String
+  effectiveQuery  String
+  filtersJson     Json
+  requestedCount  Int      @default(100)
+  retrievedCount  Int      @default(0)
+  scoredCount     Int      @default(0)
+  unscorableCount Int      @default(0)
+
+  dedupClusterCount   Int     @default(0)
+  similarContentPct   Float?
+  similarityMethod    String?
+  similarityThreshold Float?
+
+  coverageStart DateTime?
+  coverageEnd   DateTime?
+  startedAt     DateTime  @default(now())
+  completedAt   DateTime?
+  cancelRequested Boolean @default(false)
+  errorMessage    String?
+  errorCode       String?
+
+  averageTopicMatch Float?
+  relevantPostsPct  Float?
+
+  aiProvider          String?
+  aiModel             String?
+  aiConfigVersion     String?
+  scoringRubricVersion String @default("v1")
+  promptVersion        String @default("v1")
+
+  search         Search          @relation(fields: [searchId], references: [id], onDelete: Cascade)
+  posts          CollectedPost[]
+  scores         RelevanceScore[]
+  reportVersions ReportVersion[]
+  duplicateClusters DuplicateCluster[]
+  auditEvents    AuditEvent[]
+
+  @@index([searchId])
+  @@index([status])
+}
+
+model CollectedPost {
+  id             String   @id @default(cuid())
+  runId          String
+  postId         String
+  authorName     String
+  authorHandle   String
+  text           String
+  isTruncated    Boolean  @default(false)
+  missingFields  Json?
+  language       String?
+  url            String
+  postedAt       DateTime
+  isRepost       Boolean  @default(false)
+  isReply        Boolean  @default(false)
+
+  engagementJson       Json?
+  engagementCollectedAt DateTime?
+
+  translatedFrom String?
+  originalText   String?
+
+  duplicateClusterId String?
+
+  createdAt DateTime @default(now())
+
+  run    SearchRun        @relation(fields: [runId], references: [id], onDelete: Cascade)
+  cluster DuplicateCluster? @relation(fields: [duplicateClusterId], references: [id])
+  score  RelevanceScore?
+
+  @@unique([runId, postId])
+  @@index([runId])
+}
+
+model DuplicateCluster {
+  id                String  @id @default(cuid())
+  runId             String
+  representativeText String
+  memberCount       Int     @default(0)
+
+  run     SearchRun       @relation(fields: [runId], references: [id], onDelete: Cascade)
+  members CollectedPost[]
+
+  @@index([runId])
+}
+
+model RelevanceScore {
+  id          String  @id @default(cuid())
+  runId       String
+  postId      String  @unique
+  score       Int?
+  explanation String?
+  isScorable  Boolean @default(true)
+  unscorableReason String?
+
+  run  SearchRun     @relation(fields: [runId], references: [id], onDelete: Cascade)
+  post CollectedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+}
+
+model ReportVersion {
+  id      String @id @default(cuid())
+  runId   String
+  version Int
+
+  executiveSummary       String
+  themesJson             Json
+  keyTakeawaysJson        Json
+  disagreementsJson       Json
+  questionsJson           Json
+  representativePostsJson Json
+  limitations             String
+
+  minRelevanceFilter Int?
+  scoredPostCount    Int
+  filteredPostCount  Int?
+
+  generatedByProvider String
+  generatedByModel    String
+  createdAt           DateTime @default(now())
+
+  run SearchRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, version])
+  @@index([runId])
+}
+
+// Append-only: enforced in application code (no update/delete routes) and by a
+// Postgres trigger applied in a migration (see migration.sql).
+model AuditEvent {
+  id        String   @id @default(cuid())
+  searchId  String?
+  runId     String?
+  userId    String?
+  actorType String
+  action    String
+  outcome   String
+  metadataJson Json?
+  createdAt DateTime @default(now())
+
+  user User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  run  SearchRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
+
+  @@index([searchId])
+  @@index([runId])
+  @@index([userId])
+}
+
+model XConnectionSettings {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  provider              String  @default("x_api_v2")
+  encryptedCredentials  String?
+  status                String  @default("not_configured")
+  savedAt               DateTime?
+  lastTestedAt          DateTime?
+  lastTestResultJson    Json?
+  configVersion         Int     @default(1)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AIConfiguration {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  provider           String  @default("ollama_cloud")
+  encryptedApiKey    String?
+  maskedKeyHint      String?
+  model              String?
+  endpointOverride   String?
+  temperature        Float?
+  maxOutputTokens    Int?
+  status             String  @default("not_configured")
+  savedAt            DateTime?
+  lastTestedAt       DateTime?
+  lastTestResultJson Json?
+  configVersion      Int     @default(1)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
