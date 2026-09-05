@@ -53,3 +53,54 @@ describe("generateReport (AI configured but the call fails)", () => {
     expect(report.limitations).toContain("The API key was rejected.");
   });
 });
+
+describe("generateReport (output budget)", () => {
+  // Regression test: a truncated report response is invalid JSON, which was the most
+  // common real-world cause of an AI-configured report silently falling back to the
+  // heuristic generator. The report call must always request a generous output budget
+  // regardless of the provider's own default, but still respect a higher user setting.
+  it("requests at least the minimum report output budget even if unset", async () => {
+    const completeMock = vi.fn().mockResolvedValue({
+      text: '{"executiveSummary":"x","themes":[],"keyTakeaways":[],"disagreements":[],"questions":[],"representativePosts":[],"limitations":"x"}',
+      requestedModel: "gpt-4o-mini",
+    });
+    const provider: AIProvider = {
+      id: "openai",
+      label: "OpenAI",
+      defaultEndpoint: "https://api.openai.com",
+      supportsModelDiscovery: true,
+      fallbackModels: [],
+      listModels: vi.fn(),
+      complete: completeMock,
+      testConnection: vi.fn(),
+    };
+    const posts = [{ id: "p1", text: "some post", authorHandle: "a", url: "https://example.com/1", score: null }];
+
+    await generateReport("topic", posts, { provider, config: { model: "gpt-4o-mini" } });
+
+    const usedConfig = completeMock.mock.calls[0][0];
+    expect(usedConfig.maxOutputTokens).toBeGreaterThanOrEqual(6000);
+  });
+
+  it("respects a higher user-configured output budget", async () => {
+    const completeMock = vi.fn().mockResolvedValue({
+      text: '{"executiveSummary":"x","themes":[],"keyTakeaways":[],"disagreements":[],"questions":[],"representativePosts":[],"limitations":"x"}',
+      requestedModel: "gpt-4o-mini",
+    });
+    const provider: AIProvider = {
+      id: "openai",
+      label: "OpenAI",
+      defaultEndpoint: "https://api.openai.com",
+      supportsModelDiscovery: true,
+      fallbackModels: [],
+      listModels: vi.fn(),
+      complete: completeMock,
+      testConnection: vi.fn(),
+    };
+    const posts = [{ id: "p1", text: "some post", authorHandle: "a", url: "https://example.com/1", score: null }];
+
+    await generateReport("topic", posts, { provider, config: { model: "gpt-4o-mini", maxOutputTokens: 9000 } });
+
+    expect(completeMock.mock.calls[0][0].maxOutputTokens).toBe(9000);
+  });
+});

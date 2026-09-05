@@ -154,6 +154,24 @@ show, e.g., "AI report generation failed (invalid_key: ...)" instead of the gene
 heuristic message, letting the user self-diagnose from Settings' "Test AI connection"
 result and the report's own limitations text.
 
+### F.1 Follow-up: real cause identified as output-token truncation
+
+With the fix above live, the user's next run surfaced the actual reason: **"the model's
+response was not valid JSON"**, with 99/100 posts scored successfully (via AI) but the
+report call itself failing. Diagnosis: scoring sends small, simple per-batch JSON
+requests, but a single report-generation call has to produce a much larger structured
+JSON document citing up to 100 posts across several sections — and every AI call
+defaulted to `max_tokens: 1024` (`src/lib/providers/ai/openaiCompatible.ts`), far too
+small for that, so the model's response was being cut off mid-JSON.
+
+| Sl No | Case | What was tested | Result |
+| --- | --- | --- | --- |
+| F1.1 | Root cause | 99/100 posts scored via AI (small, simple responses) but report generation failed with "not valid JSON" | Confirmed output-token truncation, not an auth/model-availability issue |
+| F1.2 | Fix | `generateWithAI` (`src/lib/report.ts`) now requests `max(userConfiguredMaxOutputTokens, 6000)` specifically for the report call, regardless of the provider's own default or whatever smaller value the user set for quick tests | FIXED |
+| F1.3 | Regression tests | Added tests asserting the report call always requests ≥6000 output tokens when unset, and respects a higher user-configured value (e.g. 9000) unchanged | PASS — 32/32 tests (up from 30) |
+
+## Known limitations observed during testing
+
 ## Known limitations observed during testing
 
 - Demo mode's heuristic scorer is keyword/phrase-overlap based, so on-topic synthetic posts

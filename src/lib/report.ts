@@ -75,6 +75,13 @@ function validateCitations(ids: string[], validIds: Set<string>): string[] {
   return ids.filter((id) => validIds.has(id));
 }
 
+// A structured report citing up to 100 posts across several sections needs far more
+// output budget than a quick test/scoring call. Respect a higher user-configured value,
+// but never let it fall below this floor — a truncated response is not valid JSON, which
+// is the single most common cause of an AI-configured report silently falling back to
+// the heuristic generator.
+const MIN_REPORT_MAX_OUTPUT_TOKENS = 6000;
+
 async function generateWithAI(
   provider: AIProvider,
   config: AIProviderConfig,
@@ -83,10 +90,14 @@ async function generateWithAI(
 ): Promise<ReportOutput> {
   const validIds = new Set(posts.map((p) => p.id));
   const userPrompt = `Topic: ${JSON.stringify(topic)}\n\nCollected posts (id, author, topic-match score, text):\n${posts
-    .map((p) => `id=${p.id} @${p.authorHandle} score=${p.score ?? "unscored"}: ${JSON.stringify(p.text.slice(0, 400))}`)
+    .map((p) => `id=${p.id} @${p.authorHandle} score=${p.score ?? "unscored"}: ${JSON.stringify(p.text.slice(0, 280))}`)
     .join("\n")}`;
 
-  const completion = await provider.complete(config, buildSystemPrompt(), userPrompt);
+  const reportConfig: AIProviderConfig = {
+    ...config,
+    maxOutputTokens: Math.max(config.maxOutputTokens ?? 0, MIN_REPORT_MAX_OUTPUT_TOKENS),
+  };
+  const completion = await provider.complete(reportConfig, buildSystemPrompt(), userPrompt);
   const jsonMatch = completion.text.match(/\{[\s\S]*\}/);
   const parsed = reportSchema.parse(JSON.parse(jsonMatch ? jsonMatch[0] : completion.text));
 
