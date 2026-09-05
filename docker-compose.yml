@@ -1,0 +1,26 @@
+services:
+  app:
+    build: .
+    image: topicpulse:local
+    restart: unless-stopped
+    ports:
+      # HOST_PORT is resolved dynamically by manage.sh (auto-detects a free port
+      # starting from PORT in .env if the configured one is taken).
+      - "${HOST_PORT:-3000}:3000"
+    environment:
+      DATABASE_URL: file:/data/topicpulse.db
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env — see .env.example}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Set ENCRYPTION_KEY in .env — see .env.example}
+      PORT: 3000
+    volumes:
+      - topicpulse_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/login"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  topicpulse_data:
+    name: topicpulse_data

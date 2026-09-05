@@ -1,0 +1,98 @@
+# TopicPulse — Test Results
+
+Recorded 2026-09-05. Two suites: automated unit tests (`npm run test`, Vitest) and manual
+end-to-end API smoke tests run against a local production build (`npm run build && npm run start`)
+using demo mode plus live calls to the real X API and Ollama Cloud with intentionally invalid
+credentials (to verify error handling without needing real accounts).
+
+## A. Automated unit tests — `npm run test`
+
+28 tests, 7 files, all passing.
+
+| Sl No | Case | What was tested | Result |
+| --- | --- | --- | --- |
+| A1 | CSV formula-injection prefixing | `=`, `+`, `-`, `@`, tab-leading cells are prefixed with `'` before export | PASS |
+| A2 | CSV ordinary text passthrough | Plain text cells are left unmodified | PASS |
+| A3 | CSV quoting/escaping | Commas, quotes, and newlines inside a cell are quoted and escaped per CSV rules | PASS |
+| A4 | Jaccard similarity — identical text | Two identical posts score similarity 1.0 | PASS |
+| A5 | Jaccard similarity — unrelated text | Two unrelated posts score similarity well below the 0.6 threshold | PASS |
+| A6 | Duplicate clustering — groups near-duplicates | Near-duplicate posts cluster together; a distinct post stays out of the cluster | PASS |
+| A7 | Similar Content % calculation | Percentage = posts in a cluster of size > 1 ÷ total posts, computed correctly | PASS |
+| A8 | Similarity on empty input | Zero posts → `{clusters: [], similarContentPct: 0, clusterCount: 0}`, no crash | PASS |
+| A9 | Heuristic relevance scoring | All posts scored, both Average Topic Match and Relevant Posts % computed, on-topic post scores higher than off-topic post | PASS |
+| A10 | Relevant Posts % denominator | Only scores ≥70 counted as relevant, percentage matches manual calculation | PASS |
+| A11 | Zero posts to score | Returns `scoredCount: 0`, `averageTopicMatch: null`, `relevantPostsPct: null` (displayed as "Not available") | PASS |
+| A12 | Report citation integrity (heuristic) | Every theme and representative-post citation references a real collected post id — none invented | PASS |
+| A13 | Report on zero collected posts | Returns an honest "no posts were collected" summary instead of fabricating content | PASS |
+| A14 | Secret encrypt/decrypt round-trip | `encryptSecret` → `decryptSecret` returns the original plaintext; ciphertext never contains the plaintext | PASS |
+| A15 | Secret encryption is non-deterministic | Encrypting the same value twice produces different ciphertext (random IV) but both decrypt correctly | PASS |
+| A16 | Tampered ciphertext rejected | Modifying an encrypted payload causes decryption to throw (AES-GCM auth tag check) | PASS |
+| A17 | Secret masking | Long secrets show only the last 4 characters; short secrets fully masked | PASS |
+| A18 | SSRF guard — rejects non-HTTPS | `http://` endpoint override is rejected | PASS |
+| A19 | SSRF guard — rejects loopback | `127.0.0.1` and `localhost` are rejected | PASS |
+| A20 | SSRF guard — rejects cloud metadata address | `169.254.169.254` is rejected | PASS |
+| A21 | SSRF guard — rejects private ranges | `10.x`, `192.168.x`, `172.16.x` are rejected | PASS |
+| A22 | SSRF guard — accepts public HTTPS | A well-formed public HTTPS address is accepted | PASS |
+| A23 | Demo provider — count bounds | Never returns more posts than requested, and never more than 100 | PASS |
+| A24 | Demo provider — chronological ordering | Returned posts are ordered newest-first by `postedAt` | PASS |
+| A25 | Demo provider — deduplication | No duplicate `postId` values in a result set | PASS |
+| A26 | Demo provider — default filters | Reposts and replies are excluded by default | PASS |
+| A27 | Demo provider — honest status/count | Reports `status: "completed"` with `retrievedCount` matching the actual array length (no fabricated counts) | PASS |
+| A28 | maskSecret edge case | 3-character secret fully masked (`••••`) | PASS |
+
+## B. Manual end-to-end smoke tests (API, local build on port 3100)
+
+| Sl No | Case | What was tested | Result |
+| --- | --- | --- | --- |
+| B1 | Sign up | New account creation, session cookie issued | PASS (HTTP 200) |
+| B2 | Create demo-mode search | `POST /api/searches` with no X connection configured → falls back to demo provider | PASS — run created, provider=`demo` |
+| B3 | Full pipeline completion | Run progresses through fetching→extracting→scoring→grouping→generating→saving to `completed` | PASS — 85 posts retrieved, 85 scored, 1 theme, report generated |
+| B4 | Demo data realism (regression) | Initial demo generator produced ~100% Similar Content (templates repeated verbatim per topic); fixed by adding two independent variation pools | FIXED — Similar Content dropped from 100% to 25.9% with one clear intentional cluster (size 9) plus small incidental clusters |
+| B5 | Average Topic Match / Relevant Posts % display | Aggregate metrics computed and returned distinctly | PASS — Average 92%, Relevant 100% (heuristic scorer, on-topic synthetic corpus) |
+| B6 | "Run again" (linked rerun) | `POST /api/searches/:id/rerun` creates a new run referencing the previous one | PASS — `parentRunId` correctly points to the original run |
+| B7 | Cancellation | `POST /api/runs/:id/cancel` on an in-flight run | PASS — run reached `status: "canceled"` |
+| B8 | Export — JSON | `GET /api/runs/:id/export?format=json` | PASS (HTTP 200, well-formed payload) |
+| B9 | Export — TXT | Same, `format=txt` | PASS (HTTP 200) |
+| B10 | Export — Markdown | Same, `format=md` | PASS (HTTP 200) |
+| B11 | Export — CSV | Same, `format=csv`, includes meta header line and per-post rows | PASS (HTTP 200, well-formed) |
+| B12 | History listing | `GET /api/searches` returns both created searches for the owner | PASS |
+| B13 | X Connection save + test (invalid token) | Real request to the X API v2 recent-search endpoint with a fake bearer token | PASS — correctly classified `invalid_credentials`, `authOk:false`, sanitized message, no crash |
+| B14 | AI Configuration save + test (invalid key) | Real request to Ollama Cloud's OpenAI-compatible endpoint with a fake API key | PASS — correctly classified `invalid_key`, `authOk:false`, sanitized message, no crash |
+| B15 | SSRF guard on live endpoint override — metadata IP | AI test with `endpointOverride: https://169.254.169.254` | PASS — rejected with "Endpoint resolves to a private or reserved address" |
+| B16 | SSRF guard on live endpoint override — non-HTTPS | AI test with `endpointOverride: http://example.com` | PASS — rejected with "Endpoint must use https" |
+| B17 | Cross-user ownership isolation | A second signed-up user requests the first user's run by ID | PASS — HTTP 404 "Run not found" (no existence leak) |
+| B18 | Rename + favorite + delete (history) | `PATCH` to rename/favorite a search, then `DELETE` it | PASS — rename/favorite applied; deleted search then 404s for its owner too (soft delete) |
+| B19 | Disconnect X / AI | `DELETE /api/settings/x` and `DELETE /api/settings/ai` | PASS — both report `status: "not_configured"` afterward, independently |
+| B20 | Unauthenticated access rejected | `GET /api/searches` with no session cookie | PASS — HTTP 401 |
+| B21 | Duplicate concurrent test lock | Two simultaneous `POST /api/settings/ai/test` calls for the same user | PASS — first returns 200, second returns 409 "already running" |
+| B22 | Audit log append-only (database-level) | Direct Prisma `update`/`delete` against an existing `AuditEvent` row, bypassing the API | PASS — both operations rejected by the SQLite trigger (surfaced by Prisma as a constraint error) |
+
+## C. Docker deployment tests (`./manage.sh`)
+
+| Sl No | Case | What was tested | Result |
+| --- | --- | --- | --- |
+| C1 | `.env` bootstrap | Running `deploy` with no `.env` present prompts to generate one from `.env.example` with random `JWT_SECRET`/`ENCRYPTION_KEY` | PASS |
+| C2 | Dependency install inside container | `npm ci` inside the Docker build (initially failed on an `@types/node`/vitest peer-dependency conflict) | FIXED — bumped `@types/node` to `^22`, regenerated a clean lockfile, `npm ci` now succeeds without `--legacy-peer-deps` |
+| C3 | `deploy` (build + start) | Multi-stage image build, container start, dynamic port resolution | PASS — image built, container `Up ... (healthy)`, printed `http://localhost:3000` |
+| C4 | Automatic migrations on container start | `docker-entrypoint.sh` runs `prisma migrate deploy` before `next start` | PASS — logs show all 3 migrations applied, including the audit append-only trigger migration |
+| C5 | Healthcheck | Compose healthcheck hitting `/login` inside the container | PASS — reported `healthy` |
+| C6 | Full pipeline inside the container | Sign up, create a demo search, poll to completion via the containerized app | PASS — 85 posts retrieved, Similar Content 30.6%, Average Topic Match 92% |
+| C7 | `status` | Shows container state, configured port, and confirms the named data volume exists | PASS |
+| C8 | `backup` | Snapshots the `topicpulse_data` volume to `backups/*.tar.gz` | PASS — 25,988-byte archive created |
+| C9 | `stop` | Stops the container without removing the volume | PASS |
+| C10 | `restart` | Recreates the container, re-resolves the dynamic port, prints the live URL | PASS — reused port 3000 (free), app responded HTTP 200 immediately after |
+| C11 | Data persistence across restart | Volume-backed SQLite database survives `stop`/`restart` | PASS (implied by C10 succeeding against the same volume without re-running signup) |
+
+## Known limitations observed during testing
+
+- Demo mode's heuristic scorer is keyword/phrase-overlap based, so on-topic synthetic posts
+  (which always contain the literal topic phrase) score uniformly high (~92%, 100% "relevant").
+  This is expected and disclosed in the UI/report as a heuristic limitation — configuring and
+  testing a real AI provider produces meaning-based scoring instead.
+- The heuristic report grouper produced a single theme for the demo corpus because the topic
+  phrase itself dominates term frequency across every post. This is disclosed in the report's
+  "Collection limitations" text; a configured AI provider generates multiple narrative themes.
+- Chrome DevTools MCP could not launch a browser in this sandboxed environment, so the UI was
+  verified via direct HTTP/API calls exercising the same server code paths rather than a driven
+  browser session. Visual/interaction QA (animations, tab switching, forms) should be spot-checked
+  in a real browser before shipping.

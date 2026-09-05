@@ -1,0 +1,175 @@
+@import "tailwindcss";
+
+/* TopicPulse palette — shades of blue (sky/azure/cerulean), deliberately avoiding
+   navy/dark-blue as a brand color. Dark mode uses a neutral slate background with
+   blue accents, never a dark-navy wash. */
+:root {
+  --background: #f5f9ff;
+  --surface: #ffffff;
+  --surface-muted: #eef5ff;
+  --border: #d7e6fb;
+  --foreground: #12233d;
+  --foreground-muted: #4d6a8f;
+
+  --primary-50: #f0f8ff;
+  --primary-100: #dfeffe;
+  --primary-200: #bce0fd;
+  --primary-300: #86c8fb;
+  --primary-400: #4babf5;
+  --primary-500: #2490e6;
+  --primary-600: #1476c4;
+  --primary-700: #145d9c;
+  --primary-foreground: #ffffff;
+
+  --accent-50: #ecfbff;
+  --accent-300: #7fe0f2;
+  --accent-500: #17b3d6;
+
+  --success-500: #159a6b;
+  --success-100: #dcf6ea;
+  --warning-500: #c8830a;
+  --warning-100: #fbecd0;
+  --danger-500: #d1435b;
+  --danger-100: #fbdde2;
+
+  --focus-ring: #2490e6;
+  --radius: 0.75rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+  --color-foreground: var(--foreground);
+  --color-foreground-muted: var(--foreground-muted);
+
+  --color-primary-50: var(--primary-50);
+  --color-primary-100: var(--primary-100);
+  --color-primary-200: var(--primary-200);
+  --color-primary-300: var(--primary-300);
+  --color-primary-400: var(--primary-400);
+  --color-primary-500: var(--primary-500);
+  --color-primary-600: var(--primary-600);
+  --color-primary-700: var(--primary-700);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-accent-50: var(--accent-50);
+  --color-accent-300: var(--accent-300);
+  --color-accent-500: var(--accent-500);
+
+  --color-success-500: var(--success-500);
+  --color-success-100: var(--success-100);
+  --color-warning-500: var(--warning-500);
+  --color-warning-100: var(--warning-100);
+  --color-danger-500: var(--danger-500);
+  --color-danger-100: var(--danger-100);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --background: #0c1220;
+    --surface: #121a2b;
+    --surface-muted: #17223a;
+    --border: #24334f;
+    --foreground: #e7f0fe;
+    --foreground-muted: #9db3d6;
+
+    --primary-50: #10233c;
+    --primary-100: #123055;
+    --primary-200: #17427a;
+    --primary-300: #1f5ba0;
+    --primary-400: #2f80cf;
+    --primary-500: #4ba3ef;
+    --primary-600: #7cc0fb;
+    --primary-700: #aad9ff;
+    --primary-foreground: #071322;
+
+    --accent-50: #0d2732;
+    --accent-300: #2ea9c9;
+    --accent-500: #5fd3ef;
+
+    --success-100: #103a2a;
+    --warning-100: #3a2b0c;
+    --danger-100: #3a1420;
+  }
+}
+
+:root[data-theme="dark"] {
+  --background: #0c1220;
+  --surface: #121a2b;
+  --surface-muted: #17223a;
+  --border: #24334f;
+  --foreground: #e7f0fe;
+  --foreground-muted: #9db3d6;
+
+  --primary-50: #10233c;
+  --primary-100: #123055;
+  --primary-200: #17427a;
+  --primary-300: #1f5ba0;
+  --primary-400: #2f80cf;
+  --primary-500: #4ba3ef;
+  --primary-600: #7cc0fb;
+  --primary-700: #aad9ff;
+  --primary-foreground: #071322;
+
+  --accent-50: #0d2732;
+  --accent-300: #2ea9c9;
+  --accent-500: #5fd3ef;
+
+  --success-100: #103a2a;
+  --warning-100: #3a2b0c;
+  --danger-100: #3a1420;
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@keyframes tp-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes tp-pulse-ring {
+  0% { box-shadow: 0 0 0 0 var(--primary-200); }
+  70% { box-shadow: 0 0 0 8px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+@keyframes tp-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.tp-animate-in {
+  animation: tp-fade-in 0.35s ease-out both;
+}
+
+.tp-pulse {
+  animation: tp-pulse-ring 1.8s ease-out infinite;
+}
+
+.tp-shimmer {
+  background: linear-gradient(90deg, var(--surface-muted) 25%, var(--primary-100) 50%, var(--surface-muted) 75%);
+  background-size: 200% 100%;
+  animation: tp-shimmer 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tp-animate-in, .tp-pulse, .tp-shimmer {
+    animation: none !important;
+  }
+}
